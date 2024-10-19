@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Recognize number</string>
+    <string name="title_activity_main" translatable="false">MainActivity</string>
+</resources>

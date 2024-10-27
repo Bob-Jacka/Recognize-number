@@ -1,49 +1,80 @@
 package com.example.recognizenumber
 
+import GlobalSettings.FILENAME_FORMAT
 import android.Manifest
+import android.content.ContentValues
+import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.ImageFormat
-import android.graphics.Rect
-import android.hardware.camera2.CameraAccessException
-import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CameraManager
-import android.hardware.camera2.CameraMetadata
-import android.media.Image
-import android.media.ImageReader
-import android.media.ImageReader.OnImageAvailableListener
+import android.icu.text.SimpleDateFormat
+import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
-import android.util.Log
-import android.view.TextureView
+import android.provider.MediaStore
+import android.widget.ProgressBar
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.core.content.ContextCompat
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import java.util.concurrent.Semaphore
-import java.util.concurrent.TimeUnit
+import com.google.common.util.concurrent.ListenableFuture
+import java.util.Locale
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
+typealias LumaListener = (luma: Double) -> Unit
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var camera_view: TextureView
-    private lateinit var analyze_btn: FloatingActionButton
 
-    private val cameraOpenCloseLock = Semaphore(1)
-    private var imageReader: ImageReader? = null
-    private val cameraBackgroundThread = HandlerThread("CameraThread")
-    private var cameraHandler: Handler? = null
-    private var cameraDevice: CameraDevice? = null
-    private var captureSession: CameraCaptureSession? = null
+    private lateinit var analyze_btn: FloatingActionButton
+    private lateinit var settings_btn: FloatingActionButton
+    private lateinit var progress_bar: ProgressBar
+    private lateinit var viewFinder: PreviewView
+
+    private var imageCapture: ImageCapture? = null
+    private val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+    private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
+    private lateinit var cameraExecutor: ExecutorService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        camera_view = findViewById(R.id.CameraView)
+        viewFinder = findViewById(R.id.viewFinder)
         analyze_btn = findViewById(R.id.takeApicture)
+        progress_bar = findViewById(R.id.CameraLoad)
+        settings_btn = findViewById(R.id.Settings)
+
         requestPermissions(arrayOf(Manifest.permission.CAMERA), 0)
+        cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        val preview = Preview.Builder()
+            .build()
+            .also {
+                it.setSurfaceProvider(viewFinder.surfaceProvider)
+            }
+        cameraProviderFuture.addListener(Runnable {
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    this, cameraSelector, preview
+                )
+            } catch (exc: Exception) {
+                Toast.makeText(
+                    applicationContext,
+                    "Use case binding failed",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }, ContextCompat.getMainExecutor(this))
+
+        analyze_btn.setOnClickListener { takePhoto() }
+        settings_btn.setOnClickListener { startActivity(Intent(this, Settings::class.java)) }
+        cameraExecutor = Executors.newSingleThreadExecutor()
     }
 
     override fun onRequestPermissionsResult(
@@ -53,179 +84,124 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            setupCamera()
-            openCamera()
+            startCamera()
         }
     }
 
-    private fun setupCamera() {
-        try {
-            startCameraBackgroundThread()
-            setupCameraOutputs()
-        } catch (e: CameraAccessException) {
-
-        }
+    override fun onDestroy() {
+        super.onDestroy()
+        cameraExecutor.shutdown()
     }
 
-    private fun setupCameraOutputs() {
-        imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, 2)
-        imageReader?.setOnImageAvailableListener(
-            onRawImageAvailableListener, cameraHandler
+    companion object {
+
+    }
+
+    private val activityResultLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        )
+        { permissions ->
+            // Handle Permission granted/rejected
+            var permissionGranted = true
+            permissions.entries.forEach {
+                if (
+//                    it.key in REQUIRED_PERMISSIONS &&
+                    it.value == false)
+                    permissionGranted = false
+            }
+            if (!permissionGranted) {
+                Toast.makeText(
+                    applicationContext,
+                    "Permission request denied",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                startCamera()
+            }
+        }
+
+    private fun startCamera() {
+        progress_bar.animate().alpha(0.0f);
+        progress_bar.animate().setDuration(750);
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+
+        cameraProviderFuture.addListener({
+            // Used to bind the lifecycle of cameras to the lifecycle owner
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+            progress_bar.animate().start();
+            // Preview
+            val preview = Preview.Builder()
+                .build()
+                .also {
+                    it.setSurfaceProvider(viewFinder.surfaceProvider)
+                }
+
+            // Select back camera as a default
+            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+            try {
+                // Unbind use cases before rebinding
+                cameraProvider.unbindAll()
+
+                // Bind use cases to camera
+                cameraProvider.bindToLifecycle(
+                    this, cameraSelector, preview
+                )
+
+            } catch (exc: Exception) {
+                Toast.makeText(
+                    applicationContext,
+                    "Use case binding failed",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun takePhoto() {
+        // Get a stable reference of the modifiable image capture use case
+        val imageCapture = imageCapture ?: return
+
+        // Create time stamped name and MediaStore entry.
+        val name = SimpleDateFormat(
+            FILENAME_FORMAT,
+            Locale.US //могут быть баги из за неправильной зависимости
+        )
+            .format(System.currentTimeMillis())
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CameraX-Image")
+            }
+        }
+
+        val outputOptions = ImageCapture.OutputFileOptions
+            .Builder(
+                contentResolver,
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                contentValues
+            )
+            .build()
+        imageCapture.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(this),
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onError(exc: ImageCaptureException) {
+                    Toast.makeText(applicationContext, "Error in photo capture", Toast.LENGTH_SHORT)
+                        .show()
+                }
+
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    Toast.makeText(
+                        applicationContext,
+                        "Photo capture succeeded: ${output.savedUri}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         )
     }
-
-    private fun startCameraBackgroundThread() {
-        cameraBackgroundThread.start()
-        cameraHandler = Handler(cameraBackgroundThread.looper)
-    }
-
-
-    private fun openCamera() {
-        val manager = getSystemService(CAMERA_SERVICE) as CameraManager
-        try {
-            if (!cameraOpenCloseLock.tryAcquire(500, TimeUnit.MILLISECONDS)) {
-                throw RuntimeException("Time out waiting to lock camera opening.")
-            }
-            findCamera(manager, CameraMetadata.LENS_FACING_BACK)?.let { id ->
-                manager.openCamera(id, cameraStateCallback, cameraHandler)
-            }
-        } catch (e: InterruptedException) {
-            Log.e(this::class.simpleName, "Error opening camera")
-        } catch (e: SecurityException) {
-            Log.e(this::class.simpleName, "Error opening camera")
-        }
-    }
-
-    private fun findCamera(manager: CameraManager, cameraFacing: Int): String? {
-        return try {
-            manager.cameraIdList.first { cameraId ->
-                manager.getCameraCharacteristics(cameraId)
-                    .get(CameraCharacteristics.LENS_FACING) == cameraFacing
-            }
-
-        } catch (e: CameraAccessException) {
-            return null
-        }
-    }
-
-    private fun closeCamera() {
-        try {
-            cameraOpenCloseLock.acquire()
-            captureSession?.let {
-                it.close()
-                captureSession = null
-
-            }
-            cameraDevice?.let {
-                it.close()
-                cameraDevice = null
-            }
-            imageReader?.let {
-                it.close()
-                imageReader = null
-            }
-
-        } catch (e: InterruptedException) {
-            throw java.lang.RuntimeException("Interrupted while trying to lock camera closing.", e)
-        } finally {
-            cameraOpenCloseLock.release()
-        }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        closeCamera()
-    }
-
-    private fun startCaptureSession() {
-        try {
-            val captureRequestBuilder =
-                cameraDevice?.createCaptureRequest(CameraDevice.TEMPLATE_RECORD) ?: return
-            val targets = listOf(imageReader?.surface)
-            targets.forEach { captureRequestBuilder.addTarget(it ?: return@forEach) }
-            cameraDevice?.createCaptureSession(
-                targets,
-                object : CameraCaptureSession.StateCallback() {
-                    override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
-                        try {
-                            cameraCaptureSession.setRepeatingRequest(
-                                captureRequestBuilder.build(),
-                                null,
-                                cameraHandler
-                            )
-                            captureSession = cameraCaptureSession
-                        } catch (e: CameraAccessException) {
-                            e.printStackTrace()
-                            return
-                        } catch (e: java.lang.IllegalStateException) {
-                            e.printStackTrace()
-                            return
-                        }
-                    }
-                    override fun onConfigureFailed(cameraCaptureSession: CameraCaptureSession) {
-                        Log.e("TAG", "Failed to configure camera.")
-                    }
-                },
-                cameraHandler
-            )
-        } catch (e: CameraAccessException) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun handleImage(image: Image) {
-        camera_view.lockCanvas()?.let { canvas ->
-            canvas.drawBitmap(
-                createBitmap(image),
-                null,
-                Rect(
-                    camera_view.left,
-                    camera_view.top,
-                    camera_view.right,
-                    camera_view.bottom
-                ),
-                null
-            )
-            camera_view.unlockCanvasAndPost(canvas)
-        }
-        image.close()
-    }
-
-    private fun createBitmap(image: Image): Bitmap {
-        val buffer = image.planes[0].buffer
-        val bytes = ByteArray(buffer.remaining())
-        buffer.get(bytes)
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, null)
-    }
-
-    private val onRawImageAvailableListener = OnImageAvailableListener { reader ->
-        try {
-            reader.acquireLatestImage()?.let { image ->
-                handleImage(image)
-
-            }
-        } catch (e: IllegalStateException) {
-        }
-    }
-
-    private val cameraStateCallback: CameraDevice.StateCallback =
-        object : CameraDevice.StateCallback() {
-            override fun onOpened(cameraDevice: CameraDevice) {
-                cameraOpenCloseLock.release()
-                this@MainActivity.cameraDevice = cameraDevice
-                startCaptureSession()
-            }
-
-            override fun onDisconnected(cameraDevice: CameraDevice) {
-                cameraOpenCloseLock.release()
-                cameraDevice.close()
-                this@MainActivity.cameraDevice = null
-            }
-
-            override fun onError(cameraDevice: CameraDevice, error: Int) {
-                cameraOpenCloseLock.release()
-                cameraDevice.close()
-                this@MainActivity.cameraDevice = null
-            }
-        }
 }

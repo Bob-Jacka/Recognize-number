@@ -1,4 +1,4 @@
-package com.example.recognizenumber
+package com.example.recognizenumber.pages
 
 import GlobalSettings
 import android.content.Intent
@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.recognizenumber.R
 import java.io.File
 
 class Settings : AppCompatActivity() {

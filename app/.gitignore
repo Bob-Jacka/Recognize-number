@@ -1,1 +1,7 @@
-/build
+/build/intermediates
+/build/generated/res/pngs
+/build/kotlin
+/build/outputs
+/build/python
+/build/snapshot
+/build/tmp

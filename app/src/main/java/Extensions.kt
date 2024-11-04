@@ -6,6 +6,7 @@ import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 
 object Extensions {
+
     private lateinit var py: Python
     private lateinit var pyObject: PyObject
 
@@ -36,12 +37,11 @@ object Extensions {
         }
     }
 
-    fun pythonAction(methodToEval: PythonMethod, path: String = ""): PyObject? {
-        try {
-            return pyObject.callAttr(methodToEval.getValue(), path)
-        } catch (e: Exception) {
-            Log.d("extensions", "error in python action")
-        }
-        return null
+    fun pythonAction(methodToEval: PythonMethod, path: String): PyObject? {
+        return pyObject.callAttr(methodToEval.getValue(), path)
+    }
+
+    fun pythonAction(methodToEval: PythonMethod): PyObject? {
+        return pyObject.callAttr(methodToEval.getValue())
     }
 }

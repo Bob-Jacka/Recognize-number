@@ -17,6 +17,8 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.Surface
+import android.view.View.GONE
+import android.view.View.VISIBLE
 import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
@@ -32,6 +34,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+
 
 typealias LumaListener = (luma: Double) -> Unit
 
@@ -64,11 +67,11 @@ class MainActivity : AppCompatActivity() {
             .build()
         progress_bar.animate().alpha(0.0f)
         progress_bar.animate().setDuration(750)
-        
+
         analyze_btn.setOnClickListener { takePhoto() }
         settings_btn.setOnClickListener { startActivity(Intent(this, Settings::class.java)) }
         cameraExecutor = Executors.newSingleThreadExecutor()
-//        makeShortText(applicationContext, pythonAction("iamalive").toString())
+        makeShortText(applicationContext, pythonAction(PythonMethod.I_AM_ALIVE).toString())
     }
 
     override fun onRequestPermissionsResult(
@@ -136,17 +139,17 @@ class MainActivity : AppCompatActivity() {
             }
         ) ?: makeShortText(applicationContext, "error in imageCapture")
         try {
-            Thread {
-                progress_bar.animate().start()
-                neuro_analyze("/storage/emulated/0/$FILE_PATH/$name.jpeg")
-            }
+            neuro_analyze("/storage/emulated/0/$FILE_PATH/$name.jpeg")
         } catch (e: UninitializedPropertyAccessException) {
             Log.d("MainActivity", "error in take photo, because path is null")
         }
     }
 
-    private fun neuro_analyze(path_to_img: String) {
-        pythonAction(PythonMethod.LOAD_MODEL)
+    private fun neuro_analyze(path_to_img: String = "/storage/emulated/0/$FILE_PATH/") {
+        val saveFileName = applicationContext.filesDir.canonicalPath + "/Neuro/"
+        viewFinder.visibility = GONE
+        progress_bar.animate().start()
+        viewFinder.visibility = VISIBLE
         val returnedVal = pythonAction(PythonMethod.PREDICT_NUMBER, path_to_img)?.toInt()
         makeShortText(this, "Predicted num is $returnedVal")
     }

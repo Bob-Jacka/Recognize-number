@@ -1,32 +1,33 @@
 import os
 
-from tensorflow import keras
 import numpy as np
 from matplotlib import image as img
+from tensorflow import keras
 from tensorflow.keras import Sequential
 
-image_to_recognize: np.ndarray = ...
-model: Sequential
-save_model_path: str = '../../../NeuroNet/'
+
 ext: str = '.keras'
+save_model_path: str = '/data/data/com.example.recognizenumber/files/Neuro/'
+
+# save_model_path: str = '/home/kirill/StudioProjects/Recognize-number/app/NeuroNet/'
 
 
 def iamalive():
-    return 'hello from python'
+    return "hello from python"
 
 
-def load_model(neuro_arc: str = "dense") -> str:
-    global model
+def load_model(neuro_arc: str = "dense") -> Sequential:
     if os.path.exists(save_model_path) and os.listdir(save_model_path).__len__() != 0:
         list_models = os.listdir(save_model_path)
-        if list_models.count(neuro_arc) != 0:
+        if list_models.count(neuro_arc + ext) != 0:
             val_to_load = save_model_path + neuro_arc + ext
             with open(val_to_load, 'r'):
                 model = keras.models.load_model(val_to_load)
-    return model.name
+    return model
+
 
 def predict_number(path_to_data: str, batch_size=1) -> int:
-    global image_to_recognize
+    model = load_model()
     weights_before = model.get_weights()  # get weights before recognize
     print('freeze weights')
     try:
@@ -45,7 +46,6 @@ def predict_number(path_to_data: str, batch_size=1) -> int:
                     key += 1
                 model.set_weights(weights_before)
                 return get_maximum_from_dict(results)
-
             else:
                 print('Please, load model')
         else:

@@ -1,33 +1,38 @@
 import os
 
+from keras import Sequential
 import numpy as np
 from matplotlib import image as img
-from tensorflow import keras
-from tensorflow.keras import Sequential
+import keras
+import tensorflow
 
+ext_keras: str = '.keras'
+ext_pb: str = '.pb'
 
-ext: str = '.keras'
 save_model_path: str = '/data/data/com.example.recognizenumber/files/Neuro/'
-
-# save_model_path: str = '/home/kirill/StudioProjects/Recognize-number/app/NeuroNet/'
 
 
 def iamalive():
     return "hello from python"
 
 
-def load_model(neuro_arc: str = "dense") -> Sequential:
+# def load_model(neuro_arc: str = "dense") -> Sequential:
+#     if os.path.exists(save_model_path) and os.listdir(save_model_path).__len__() != 0:
+#         list_models = os.listdir(save_model_path)
+#         if list_models.count(neuro_arc + ext_pb) != 0:
+#             val_to_load = save_model_path + neuro_arc + ext_pb
+#             model = tensorflow.saved_model.load(val_to_load)
+#             return model
+
+def load_models(neuro_arc: str = "dense") -> Sequential:
     if os.path.exists(save_model_path) and os.listdir(save_model_path).__len__() != 0:
-        list_models = os.listdir(save_model_path)
-        if list_models.count(neuro_arc + ext) != 0:
-            val_to_load = save_model_path + neuro_arc + ext
-            with open(val_to_load, 'r'):
-                model = keras.models.load_model(val_to_load)
-    return model
+        val_to_load = save_model_path + neuro_arc + ext_keras
+        model = keras.models.load_model(val_to_load)
+        return model
 
 
 def predict_number(path_to_data: str, batch_size=1) -> int:
-    model = load_model()
+    model = load_models()
     weights_before = model.get_weights()  # get weights before recognize
     print('freeze weights')
     try:

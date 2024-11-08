@@ -26,10 +26,10 @@ android {
     chaquopy {
         defaultConfig {
             pip {
-                install("keras")
+                install("keras==2.15.0")
                 install("matplotlib")
-                install("tensorflow")
-                install("numpy")
+                install("tensorflow==2.17.0")
+                install("numpy==1.26.4")
             }
             pyc {
                 src = false

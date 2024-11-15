@@ -30,18 +30,18 @@ object Extensions {
             if (!Python.isStarted()) {
                 Python.start(AndroidPlatform(context))
                 py = Python.getInstance()
-                pyObject = py.getModule("Nnetwork")
+                pyObject = py.getModule(Pythonl.MODULE_NAME.getValue())
             }
         } catch (e: Exception) {
             Log.d("extensions", "error in python initialization")
         }
     }
 
-    fun pythonAction(methodToEval: PythonMethod, path: String): PyObject? {
+    fun pythonAction(methodToEval: Pythonl, path: String): PyObject? {
         return pyObject.callAttr(methodToEval.getValue(), path)
     }
 
-    fun pythonAction(methodToEval: PythonMethod): PyObject? {
+    fun pythonAction(methodToEval: Pythonl): PyObject? {
         return pyObject.callAttr(methodToEval.getValue())
     }
 }

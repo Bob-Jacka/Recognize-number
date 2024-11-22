@@ -59,15 +59,15 @@ android {
                 val matplotlib =
                     "matplotlib-3.8.2-0-cp312-cp312-android_21_arm64_v8a.whl"
                 val ml_dtypes =
-                    "ml_dtypes-0.3.0-cp312-cp312-macosx_10_9_universal2.whl"
+                    "ml_dtypes-0.4.0-cp312-cp312-macosx_10_9_universal2.whl"
                 val h5py =
-                    "h5py-2.10.0-1-cp38-cp38-android_21_arm64_v8a.whl"
+                    "h5py-3.10.0-cp312-cp312-macosx_11_0_arm64.whl"
                 val optree =
-                    "optree-0.13.1-cp312-cp312-macosx_11_0_arm64.whl"
+                    "optree-0.13.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
                 val numpy =
                     "numpy-1.26.2-0-cp312-cp312-android_21_arm64_v8a.whl"
                 val tensorflow =
-                    "tensorflow-2.1.0-9-cp38-cp38-android_21_arm64_v8a.whl"
+                    "tensorflow-2.17.0-cp312-cp312-macosx_12_0_arm64.whl "
 
 
                 install((path_to_libs + keras))

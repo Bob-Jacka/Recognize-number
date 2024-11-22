@@ -123,8 +123,7 @@ class MainActivity : AppCompatActivity() {
                 contentResolver,
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 contentValues
-            )
-            .build()
+            ).build()
         imageCapture?.takePicture(
             outputOptions,
             cameraExecutor,
@@ -136,8 +135,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     Log.d(TAG, "Photo capture succeeded: ${output.savedUri}")
                 }
-            }
-        ) ?: makeShortText(applicationContext, "error in imageCapture")
+            }) ?: makeShortText(applicationContext, "error in imageCapture")
         try {
             neuro_analyze("/storage/emulated/0/$FILE_PATH/$name.jpeg")
         } catch (e: UninitializedPropertyAccessException) {
@@ -146,7 +144,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun neuro_analyze(path_to_img: String = "/storage/emulated/0/$FILE_PATH/") {
-//        val saveFileName = applicationContext.filesDir.canonicalPath + "/Neuro/"
         viewFinder.visibility = GONE
         progress_bar.animate().start()
         val returnedVal = pythonAction(Pythonl.PREDICT_NUMBER, path_to_img)?.toInt()

@@ -8,7 +8,7 @@ import com.chaquo.python.android.AndroidPlatform
 object Extensions {
 
     private lateinit var py: Python
-    private lateinit var pyObject: PyObject
+    private var pyObject: PyObject? = null
 
     fun makeShortText(context: Context, text: String) {
         try {
@@ -38,10 +38,10 @@ object Extensions {
     }
 
     fun pythonAction(methodToEval: Pythonl, path: String): PyObject? {
-        return pyObject.callAttr(methodToEval.getValue(), path)
+        return pyObject?.callAttr(methodToEval.getValue(), path)
     }
 
     fun pythonAction(methodToEval: Pythonl): PyObject? {
-        return pyObject.callAttr(methodToEval.getValue())
+        return pyObject?.callAttr(methodToEval.getValue())
     }
 }

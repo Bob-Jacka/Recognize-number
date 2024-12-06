@@ -1,61 +1,47 @@
 import os
-
-import tensorflow
-import keras
-from keras import Sequential
-from numpy import float32
-from matplotlib import image
+import torch
+from PIL import Image
+from torchvision import transforms
 
 ext_keras: str = '.keras'
 ext_pb: str = '.pb'
+ext_torch: str = '.pth'
 
 save_model_path: str = '/data/data/com.example.recognizenumber/files/Neuro/'
+
+transform_func3 = transforms.Compose([
+    transforms.Grayscale(),
+    transforms.Resize((28, 28)),
+    transforms.ToTensor(),
+    transforms.Normalize((0.5,), (0.5,))
+])
 
 
 def iamalive():
     return "hello from python"
 
 
-def load_models(neuro_arc: str = "dense") -> Sequential:
-    if os.path.exists(save_model_path) and os.listdir(save_model_path).__len__() != 0:
-        val_to_load = save_model_path + neuro_arc + ext_keras
-        model = keras.models.load_model(val_to_load)
-        return model
+def load_model(load_path: str):
+    if exists(load_path) and len(os.listdir(load_path)) != 0:
+        state_dict = torch.load(load_path + 'model' + ext_torch, weights_only=True)
+        loaded_model = torch.nn.Module()
+        if 'module.' in next(iter(state_dict.keys())):
+            state_dict = {k.replace('module.', ''):
+                              v for k, v in state_dict.items()}
+        loaded_model.load_state_dict(state_dict, strict=False)
+        loaded_model.eval()
+        print("model loaded and ready")
+        return loaded_model
+    else:
+        print("Model is not exitst")
 
 
-def predict_number(path_to_data: str, batch_size=1) -> int:
-    model = load_models()
-    weights_before = model.get_weights()  # get weights before recognize
-    print('freeze weights')
-    try:
-        if path_to_data is not None:
-            image_to_recognize = image.imread(path_to_data)
-            image_to_recognize = image_to_recognize.sum(axis=2)
-            image_to_recognize = image_to_recognize.reshape((1, 28 * 28)).astype(
-                float32) / 255
-
-            if model is not None:
-                value = model.predict(x=image_to_recognize, batch_size=batch_size)[0]
-                key = 0
-                results = dict()
-                for _ in value:
-                    results[key] = _
-                    key += 1
-                model.set_weights(weights_before)
-                return get_maximum_from_dict(results)
-            else:
-                print('Please, load model')
-        else:
-            print('Please specify the image')
-    except FileNotFoundError:
-        print('please, make sure that file with image exists')
-
-
-def get_maximum_from_dict(dictionary: dict) -> int:
-    value_tmp: float = 0.0
-    key_tmp: int = 0
-    for key, val in dictionary.items():
-        if value_tmp < val:
-            value_tmp = val
-            key_tmp = key
-    return key_tmp
+def predict_number(image_path: str):
+    model = load_model(save_model_path)
+    print("Net thinks that ")
+    with torch.no_grad():
+        image = Image.open(image_path)
+        image = transform_func3(image).unsqueeze(0)
+        output = model(image)
+        _, predicted = torch.max(output.data, 1)
+        return predicted.item()

@@ -12,7 +12,7 @@ android {
 
     flavorDimensions += "pyVersion"
     productFlavors {
-        create("py312") { dimension = "pyVersion" }
+        create("py38") { dimension = "pyVersion" }
     }
 
     defaultConfig {
@@ -33,7 +33,7 @@ android {
     }
     chaquopy {
         productFlavors {
-            getByName("py312") { version = "3.12" }
+            getByName("py38") { version = "3.8" }
         }
         defaultConfig {
             val path: String = if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -54,37 +54,22 @@ android {
                             File.separator + "neuro_libraries" +
                             File.separator
 
-//                val keras =
-//                    "keras-3.6.0-py3-none-any.whl"
                 val matplotlib =
-                    "matplotlib-3.8.2-0-cp312-cp312-android_21_arm64_v8a.whl"
-//                val ml_dtypes =
-//                    "ml_dtypes-0.4.0-cp312-cp312-macosx_10_9_universal2.whl"
-//                val h5py =
-//                    "h5py-3.10.0-cp312-cp312-macosx_11_0_arm64.whl"
-//                val optree =
-//                    "optree-0.13.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
+                    "matplotlib-3.6.0-0-cp38-cp38-android_21_arm64_v8a.whl"
                 val numpy =
-                    "numpy-1.26.2-0-cp312-cp312-android_21_arm64_v8a.whl"
+                    "numpy-1.19.5-0-cp38-cp38-android_21_arm64_v8a.whl"
                 val torch = "torch-1.8.1-3-cp38-cp38-android_21_arm64_v8a.whl"
                 val torch_vision = "torchvision-0.9.1-1-cp38-cp38-android_21_arm64_v8a.whl"
-                val pillow = "pillow-11.0.0-0-cp312-cp312-android_24_arm64_v8a.whl"
-//                val tensorflow =
-//                    "tensorflow-2.17.0-cp312-cp312-macosx_12_0_arm64.whl "
-
+                val pillow = "Pillow-9.2.0-0-cp38-cp38-android_21_arm64_v8a.whl"
 
                 install((path_to_libs + torch))
                 install((path_to_libs + matplotlib))
-//                install((path_to_libs + ml_dtypes))
-//                install((path_to_libs + h5py))
-//                install((path_to_libs + optree))
-//                install((path_to_libs + tensorflow))
                 install((path_to_libs + torch_vision))
                 install((path_to_libs + pillow))
                 install((path_to_libs + numpy))
             }
             pyc {
-                src = true
+                src = false
             }
         }
     }

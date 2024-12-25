@@ -22,7 +22,7 @@ def iamalive():
 
 
 def load_model(load_path: str):
-    if exists(load_path) and len(os.listdir(load_path)) != 0:
+    if len(os.listdir(load_path)) != 0:
         state_dict = torch.load(load_path + 'model' + ext_torch, weights_only=True)
         loaded_model = torch.nn.Module()
         if 'module.' in next(iter(state_dict.keys())):
@@ -34,14 +34,18 @@ def load_model(load_path: str):
         return loaded_model
     else:
         print("Model is not exitst")
+        return None
 
 
 def predict_number(image_path: str):
     model = load_model(save_model_path)
-    print("Net thinks that ")
-    with torch.no_grad():
-        image = Image.open(image_path)
-        image = transform_func3(image).unsqueeze(0)
-        output = model(image)
-        _, predicted = torch.max(output.data, 1)
-        return predicted.item()
+    if model is not None:
+        print("Net thinks that ")
+        with torch.no_grad():
+            image = Image.open(image_path)
+            image = transform_func3(image).unsqueeze(0)
+            output = model(image)
+            _, predicted = torch.max(output.data, 1)
+            return predicted.item()
+    else:
+        return "model is not exist"

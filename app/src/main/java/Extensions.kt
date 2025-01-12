@@ -1,4 +1,5 @@
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import com.chaquo.python.PyObject
@@ -30,18 +31,18 @@ object Extensions {
             if (!Python.isStarted()) {
                 Python.start(AndroidPlatform(context))
                 py = Python.getInstance()
-                pyObject = py.getModule(Pythonl.MODULE_NAME.getValue())
+                pyObject = py.getModule(PythonL.MODULE_NAME.getValue())
             }
         } catch (e: Exception) {
-            Log.d("extensions", "error in python initialization")
+            Log.d("extensions", e.toString())
         }
     }
 
-    fun pythonAction(methodToEval: Pythonl, path: String): PyObject? {
-        return pyObject?.callAttr(methodToEval.getValue(), path)
+    fun pythonAction(methodToEval: PythonL, file_name: String): PyObject? {
+        return pyObject?.callAttr(methodToEval.getValue(), file_name)
     }
 
-    fun pythonAction(methodToEval: Pythonl): PyObject? {
+    fun pythonAction(methodToEval: PythonL): PyObject? {
         return pyObject?.callAttr(methodToEval.getValue())
     }
 }

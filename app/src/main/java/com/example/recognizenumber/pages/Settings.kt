@@ -13,6 +13,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.recognizenumber.R
 import java.io.File
+import java.io.FileNotFoundException
 
 class Settings : AppCompatActivity() {
 
@@ -39,10 +40,15 @@ class Settings : AppCompatActivity() {
         v: View?,
         menuInfo: ContextMenu.ContextMenuInfo?
     ) {
-        val dir = File("app/NeuroNet").listFiles()
-        menu.setHeaderTitle("Choose neuro model")
-        for (file in dir!!) {
-            menu.add(file.name)
+        try {
+            val dir = File("app/NeuroNet").listFiles()
+            menu.setHeaderTitle("Choose neuro model")
+            for (file in dir!!) {
+                menu.add(file.name)
+            }
+        } catch (e: FileNotFoundException) {
+            e.printStackTrace()
+            //
         }
         super.onCreateContextMenu(menu, v, menuInfo)
     }

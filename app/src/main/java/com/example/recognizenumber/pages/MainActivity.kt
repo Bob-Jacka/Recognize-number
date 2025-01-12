@@ -6,17 +6,27 @@ import Extensions.pythonAction
 import GlobalSettings.FILENAME_FORMAT
 import GlobalSettings.FILE_PATH
 import GlobalSettings.FILE_TYPE
+import GlobalSettings.LOAD_DUR
 import GlobalSettings.TAG
-import Pythonl
+import PythonL
 import android.Manifest
+import android.content.ContentResolver
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.icu.text.SimpleDateFormat
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
+import android.provider.MediaStore.Images.Media
 import android.util.Log
 import android.view.Surface
+import android.view.View
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.widget.ProgressBar
@@ -31,24 +41,28 @@ import androidx.core.content.ContextCompat
 import com.example.recognizenumber.R
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.common.util.concurrent.ListenableFuture
+import java.io.IOException
+import java.io.OutputStream
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 
-typealias LumaListener = (luma: Double) -> Unit
-
 class MainActivity : AppCompatActivity() {
 
     private lateinit var analyze_btn: FloatingActionButton
     private lateinit var settings_btn: FloatingActionButton
+    private lateinit var mask_btn: FloatingActionButton
     private lateinit var progress_bar: ProgressBar
     private lateinit var viewFinder: PreviewView
+    private lateinit var image_mask: View
 
-    private var imageCapture: ImageCapture? = null
-    private val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
     private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
     private lateinit var cameraExecutor: ExecutorService
+    private var imageCapture: ImageCapture? = null
+    private val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+    private var isMaskOn: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +71,8 @@ class MainActivity : AppCompatActivity() {
         analyze_btn = findViewById(R.id.takeApicture)
         progress_bar = findViewById(R.id.CameraLoad)
         settings_btn = findViewById(R.id.Settings)
+        mask_btn = findViewById(R.id.OnMask)
+        image_mask = findViewById(R.id.image_mask)
         initPython(this)
         requestPermissions(arrayOf(Manifest.permission.CAMERA), 0)
 
@@ -65,13 +81,25 @@ class MainActivity : AppCompatActivity() {
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setFlashMode(ImageCapture.FLASH_MODE_OFF)
             .build()
-        progress_bar.animate().alpha(0.0f)
-        progress_bar.animate().setDuration(750)
+
+        progress_bar.animate().alpha(0.0f).setDuration(LOAD_DUR).start()
+        Thread.sleep(LOAD_DUR + 1500).also { viewFinder.visibility = VISIBLE }
 
         analyze_btn.setOnClickListener { takePhoto() }
         settings_btn.setOnClickListener { startActivity(Intent(this, Settings::class.java)) }
+        mask_btn.setOnClickListener {
+            if (isMaskOn) {
+                isMaskOn = false
+                image_mask.visibility = GONE
+                viewFinder.visibility = VISIBLE
+            } else {
+                isMaskOn = true
+                image_mask.visibility = VISIBLE
+                viewFinder.visibility = GONE
+            }
+        }
         cameraExecutor = Executors.newSingleThreadExecutor()
-        makeShortText(applicationContext, pythonAction(Pythonl.I_AM_ALIVE).toString())
+        makeShortText(applicationContext, pythonAction(PythonL.I_AM_ALIVE).toString())
     }
 
     override fun onRequestPermissionsResult(
@@ -85,11 +113,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        imageCapture = null
+        cameraExecutor.shutdown()
+        super.onDestroy()
+    }
+
     private fun startCamera() {
         cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         val preview = Preview.Builder()
-            .build()
-            .also {
+            .build().also {
                 it.setSurfaceProvider(viewFinder.surfaceProvider)
             }
         cameraProviderFuture.addListener({
@@ -116,12 +149,12 @@ class MainActivity : AppCompatActivity() {
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
             put(MediaStore.MediaColumns.MIME_TYPE, FILE_TYPE)
-            put(MediaStore.Images.Media.RELATIVE_PATH, FILE_PATH)
+            put(Media.RELATIVE_PATH, FILE_PATH)
         }
         val outputOptions = ImageCapture.OutputFileOptions
             .Builder(
                 contentResolver,
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                Media.EXTERNAL_CONTENT_URI,
                 contentValues
             ).build()
         imageCapture?.takePicture(
@@ -129,31 +162,70 @@ class MainActivity : AppCompatActivity() {
             cameraExecutor,
             object : ImageCapture.OnImageSavedCallback {
                 override fun onError(exc: ImageCaptureException) {
-                    makeShortText(applicationContext, "Error in photo capture")
+                    Log.d(TAG, "Error in photo capture!!", exc.cause)
                 }
 
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     Log.d(TAG, "Photo capture succeeded: ${output.savedUri}")
+                    neuro_analyze()
                 }
-            }) ?: makeShortText(applicationContext, "error in imageCapture")
-        try {
-            neuro_analyze("/storage/emulated/0/$FILE_PATH/$name.jpeg")
-        } catch (e: UninitializedPropertyAccessException) {
-            Log.d("MainActivity", "error in take photo, because path is null")
+            })
+    }
+
+    private fun neuro_analyze() {
+        val file_name = proceed_photo()
+        val python_returnedVal = pythonAction(PythonL.PREDICT_NUMBER, file_name)?.toInt()
+        makeShortText(this, "Predicted num is $python_returnedVal")
+    }
+
+    /*
+     * Функция для обработки фото и ужатия изображения до 28х28
+     */
+    private fun proceed_photo(): String {
+        val contentResolver: ContentResolver = contentResolver
+        val inputStream = getLastImageURI().let { contentResolver.openInputStream(it) }
+
+        val bitmap: Bitmap = BitmapFactory.decodeStream(inputStream)
+        inputStream?.close()
+        val resized = Bitmap.createScaledBitmap(bitmap, 28, 28, true)
+
+        val files_values = ContentValues()
+        val return_filename = "resized_${System.currentTimeMillis()}" //Resized picture name
+        files_values.apply {
+            put(Media.DISPLAY_NAME, return_filename)
+            put(Media.MIME_TYPE, FILE_TYPE)
+            put(Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+            put(Media.IS_PENDING, 1)
         }
+        val uri: Uri? = contentResolver
+            .insert(Media.EXTERNAL_CONTENT_URI, files_values)
+        try {
+            val outputStream: OutputStream? = uri?.let { contentResolver.openOutputStream(it) }
+            resized.compress(Bitmap.CompressFormat.JPEG, 100, outputStream!!)
+            outputStream.flush()
+            outputStream.close()
+            files_values.clear()
+            files_values.put(Media.IS_PENDING, 0)
+            contentResolver.update(uri, files_values, null, null)
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+        return return_filename
     }
 
-    private fun neuro_analyze(path_to_img: String = "/storage/emulated/0/$FILE_PATH/") {
-        viewFinder.visibility = GONE
-        progress_bar.animate().start()
-        val returnedVal = pythonAction(Pythonl.PREDICT_NUMBER, path_to_img)?.toInt()
-        viewFinder.visibility = VISIBLE
-        makeShortText(this, "Predicted num is $returnedVal")
-    }
-
-    override fun onDestroy() {
-        imageCapture = null
-        cameraExecutor.shutdown()
-        super.onDestroy()
+    private fun getLastImageURI(context: Context = this): Uri {
+        val contentResolver = context.contentResolver
+        val collection = Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(Media._ID)
+        var imageUri: Uri? = null
+        contentResolver.query(collection, projection, null, null, null).use { cursor ->
+            if (cursor != null && cursor.moveToFirst()) {
+                val count = cursor.count - 1
+                cursor.moveToPosition(count)
+                val id = cursor.getLong(cursor.getColumnIndexOrThrow(Media._ID))
+                imageUri = Uri.withAppendedPath(collection, id.toString())
+            }
+        }
+        return imageUri!!
     }
 }

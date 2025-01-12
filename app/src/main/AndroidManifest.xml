@@ -8,15 +8,19 @@
 
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="33" />
+        android:maxSdkVersion="33"
+        android:minSdkVersion="29" />
 
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="33" />
+        android:maxSdkVersion="33"
+        android:minSdkVersion="29" />
 
     <uses-permission
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="33" />
+        android:maxSdkVersion="33"
+        android:minSdkVersion="29"
+        tools:ignore="ScopedStorage" />
 
     <application
         android:allowBackup="true"
@@ -30,7 +34,8 @@
         tools:targetApi="31">
         <activity
             android:name=".pages.Settings"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait" />
         <activity
             android:name=".pages.MainActivity"
             android:exported="true"

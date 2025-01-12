@@ -39,7 +39,7 @@ android {
             val path: String = if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                 "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python312\\python.exe"
             } else {
-                "/home/kirill/"
+                "/home/kirill/miniconda3/bin/python"
             }
             buildPython(path)
             pip {
